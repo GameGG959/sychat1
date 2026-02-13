@@ -1,0 +1,482 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SyChat · офлайн‑мессенджер (с выходом)</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        /* (стили без изменений, оставим как есть) */
+        * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Inter', sans-serif; }
+        body { background: #0b1120; min-height: 100vh; display: flex; justify-content: center; align-items: center; padding: 16px; }
+        .app { width: 100%; max-width: 1300px; height: 90vh; background: #1a2332; border-radius: 32px; display: flex; overflow: hidden; box-shadow: 0 25px 50px -12px #000000, 0 0 0 1px #38bdf840; }
+        .sidebar { width: 340px; background: #0f172a; border-right: 1px solid #2d3a4e; display: flex; flex-direction: column; }
+        .profile-header { padding: 20px; border-bottom: 1px solid #2d3a4e; display: flex; align-items: center; gap: 16px; background: #0b1525; }
+        .avatar-large { width: 56px; height: 56px; border-radius: 50%; object-fit: cover; border: 2px solid #38bdf8; box-shadow: 0 0 15px #38bdf8; background: #1e293b; }
+        .profile-info { flex: 1; color: white; }
+        .profile-info h3 { font-size: 1.1rem; font-weight: 600; margin-bottom: 4px; }
+        .profile-info p { font-size: 0.8rem; color: #94a3b8; display: flex; align-items: center; gap: 4px; }
+        .edit-profile-btn, .logout-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 1.2rem; transition: 0.2s; }
+        .edit-profile-btn:hover, .logout-btn:hover { color: #38bdf8; }
+        .logout-btn { margin-left: 8px; }
+        .search-box { padding: 16px; border-bottom: 1px solid #2d3a4e; }
+        .search-box input { width: 100%; padding: 12px 20px; border-radius: 40px; border: none; background: #1e293b; color: white; outline: 1px solid #334155; transition: 0.2s; }
+        .search-box input:focus { outline: 2px solid #38bdf8; }
+        .users-list { flex: 1; overflow-y: auto; padding: 12px 8px; }
+        .user-item { display: flex; align-items: center; gap: 12px; padding: 12px 16px; border-radius: 24px; cursor: pointer; transition: 0.2s; margin-bottom: 4px; border: 1px solid transparent; }
+        .user-item:hover { background: #1e293b; border-color: #38bdf8; }
+        .user-item.selected { background: #1e293b; border-color: #38bdf8; box-shadow: 0 0 15px #38bdf880; }
+        .user-avatar { width: 44px; height: 44px; border-radius: 50%; object-fit: cover; background: #334155; }
+        .user-info { flex: 1; }
+        .user-info h4 { color: white; font-size: 0.95rem; font-weight: 500; }
+        .user-info p { color: #94a3b8; font-size: 0.75rem; }
+
+        .chat-area { flex: 1; display: flex; flex-direction: column; background: #1a2332; position: relative; }
+        .chat-background { position: absolute; top: 0; left: 0; width: 100%; height: 100%; object-fit: cover; opacity: 0.15; pointer-events: none; z-index: 0; }
+        .chat-content { position: relative; z-index: 1; display: flex; flex-direction: column; height: 100%; }
+        .chat-header { padding: 20px 24px; border-bottom: 1px solid #2d3a4e; display: flex; align-items: center; justify-content: space-between; background: #1a2332cc; backdrop-filter: blur(8px); }
+        .chat-header h2 { color: white; font-size: 1.3rem; font-weight: 600; }
+        .chat-header .user-status { color: #94a3b8; font-size: 0.9rem; }
+        .messages-container { flex: 1; overflow-y: auto; padding: 24px; display: flex; flex-direction: column; gap: 12px; }
+        .message { max-width: 70%; display: flex; flex-direction: column; }
+        .message.own { align-self: flex-end; }
+        .bubble { padding: 10px 18px; border-radius: 24px; background: #263b4f; color: white; word-wrap: break-word; box-shadow: 0 4px 8px #00000030; border: 1px solid #38bdf830; }
+        .message.own .bubble { background: #2563eb; border-color: #38bdf8; }
+        .voice-message { display: flex; align-items: center; gap: 12px; background: #1e293b; border-radius: 40px; padding: 8px 16px; border: 1px solid #38bdf8; }
+        .voice-message audio { height: 36px; max-width: 180px; }
+        .voice-message .duration { color: #94a3b8; font-size: 0.8rem; }
+        .message-time { font-size: 0.7rem; color: #94a3b8; margin: 4px 10px 0; }
+        .input-area { padding: 20px 24px; border-top: 1px solid #2d3a4e; background: #1a2332cc; backdrop-filter: blur(8px); display: flex; gap: 12px; align-items: center; }
+        .input-area input { flex: 1; padding: 14px 20px; border-radius: 40px; border: none; background: #1e293b; color: white; outline: 1px solid #334155; }
+        .input-area button { background: #2563eb; border: none; border-radius: 50%; width: 48px; height: 48px; color: white; cursor: pointer; transition: 0.2s; display: flex; align-items: center; justify-content: center; font-size: 1.2rem; }
+        .input-area button:hover { background: #3b82f6; transform: scale(1.05); }
+        .input-area .voice-btn { background: #4b5563; }
+        .input-area .voice-btn.recording { background: #ef4444; animation: pulse 1s infinite; }
+        @keyframes pulse { 0% { box-shadow: 0 0 0 0 #ef4444aa; } 70% { box-shadow: 0 0 0 10px #ef444400; } 100% { box-shadow: 0 0 0 0 #ef444400; } }
+
+        .modal { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0, 0, 0, 0.7); backdrop-filter: blur(8px); display: flex; align-items: center; justify-content: center; z-index: 2000; }
+        .modal.hidden { display: none; }
+        .modal-card { background: #1e293b; border-radius: 32px; padding: 32px; width: 400px; border: 1px solid #38bdf8; box-shadow: 0 0 30px #38bdf8; color: white; }
+        .modal-card h2 { margin-bottom: 24px; font-weight: 700; }
+        .modal-card input, .modal-card textarea { width: 100%; padding: 12px 20px; margin-bottom: 16px; border-radius: 40px; border: none; background: #0f172a; color: white; outline: 1px solid #334155; }
+        .modal-card textarea { border-radius: 20px; resize: none; height: 80px; }
+        .file-input { margin-bottom: 16px; }
+        .file-input label { display: block; margin-bottom: 8px; color: #94a3b8; font-size: 0.9rem; }
+        .file-input input { background: #0f172a; padding: 8px; border-radius: 40px; color: white; }
+        .modal-actions { display: flex; gap: 12px; margin-top: 24px; }
+        .btn { flex: 1; padding: 12px; border-radius: 40px; border: none; font-weight: 600; cursor: pointer; transition: 0.2s; }
+        .btn-primary { background: #2563eb; color: white; }
+        .btn-primary:hover { background: #3b82f6; }
+        .btn-outline { background: transparent; border: 1px solid #2563eb; color: white; }
+        .btn-outline:hover { background: #2563eb; }
+    </style>
+</head>
+<body>
+<div class="app" id="app"></div>
+
+<!-- Модалки -->
+<div id="registerModal" class="modal hidden">
+    <div class="modal-card">
+        <h2>Регистрация</h2>
+        <input type="text" id="regUsername" placeholder="Никнейм (уникальный)" maxlength="30">
+        <input type="password" id="regPassword" placeholder="Пароль">
+        <div class="file-input"><label>Аватарка (необязательно)</label><input type="file" id="regAvatar" accept="image/*"></div>
+        <div class="file-input"><label>Фоновое изображение (необязательно)</label><input type="file" id="regBackground" accept="image/*"></div>
+        <textarea id="regBio" placeholder="О себе (био)"></textarea>
+        <div class="modal-actions"><button class="btn btn-primary" id="registerConfirm">Создать</button><button class="btn btn-outline" id="registerCancel">Отмена</button></div>
+    </div>
+</div>
+
+<div id="loginModal" class="modal hidden">
+    <div class="modal-card">
+        <h2>Вход</h2>
+        <input type="text" id="loginUsername" placeholder="Никнейм"><input type="password" id="loginPassword" placeholder="Пароль">
+        <div class="modal-actions"><button class="btn btn-primary" id="loginConfirm">Войти</button><button class="btn btn-outline" id="loginCancel">Отмена</button></div>
+    </div>
+</div>
+
+<div id="editProfileModal" class="modal hidden">
+    <div class="modal-card">
+        <h2>Редактировать профиль</h2>
+        <div class="file-input"><label>Новая аватарка</label><input type="file" id="editAvatar" accept="image/*"></div>
+        <div class="file-input"><label>Новый фон (изображение)</label><input type="file" id="editBackground" accept="image/*"></div>
+        <textarea id="editBio" placeholder="О себе"></textarea>
+        <div class="modal-actions"><button class="btn btn-primary" id="editConfirm">Сохранить</button><button class="btn btn-outline" id="editCancel">Отмена</button></div>
+    </div>
+</div>
+
+<script>
+(function() {
+    let currentUser = null;
+    let selectedUsername = null;
+    let mediaRecorder = null;
+    let audioChunks = [];
+    let recording = false;
+    let db = null;
+
+    // ====================== Инициализация IndexedDB ======================
+    function initDB() {
+        return new Promise((resolve, reject) => {
+            const request = indexedDB.open('sychat', 2);
+            request.onerror = () => reject(request.error);
+            request.onsuccess = () => {
+                db = request.result;
+                resolve(db);
+            };
+            request.onupgradeneeded = (e) => {
+                const db = e.target.result;
+                if (!db.objectStoreNames.contains('messages')) {
+                    const store = db.createObjectStore('messages', { keyPath: 'id', autoIncrement: true });
+                    store.createIndex('byUsers', ['from', 'to'], { unique: false });
+                }
+                if (!db.objectStoreNames.contains('files')) {
+                    db.createObjectStore('files', { keyPath: 'id' });
+                }
+            };
+        });
+    }
+
+    // ====================== Работа с файлами ======================
+    function saveFile(blob, type) {
+        return new Promise((resolve, reject) => {
+            const id = Date.now() + '-' + Math.random().toString(36).substr(2, 9);
+            const tx = db.transaction('files', 'readwrite');
+            const store = tx.objectStore('files');
+            const request = store.put({ id, blob, type });
+            request.onsuccess = () => resolve(id);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    function getFile(id) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('files', 'readonly');
+            const store = tx.objectStore('files');
+            const request = store.get(id);
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // ====================== Работа с сообщениями ======================
+    function saveMessage(msg) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('messages', 'readwrite');
+            const store = tx.objectStore('messages');
+            const request = store.add(msg);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    function loadMessages(user1, user2) {
+        return new Promise((resolve, reject) => {
+            const tx = db.transaction('messages', 'readonly');
+            const store = tx.objectStore('messages');
+            const request = store.getAll();
+            request.onsuccess = () => {
+                const all = request.result;
+                const filtered = all.filter(m => 
+                    (m.from === user1 && m.to === user2) || (m.from === user2 && m.to === user1)
+                ).sort((a, b) => a.timestamp - b.timestamp);
+                resolve(filtered);
+            };
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    // ====================== Профили (localStorage) ======================
+    function getProfiles() {
+        const profiles = localStorage.getItem('sychat_profiles');
+        return profiles ? JSON.parse(profiles) : {};
+    }
+
+    function saveProfiles(profiles) {
+        localStorage.setItem('sychat_profiles', JSON.stringify(profiles));
+    }
+
+    function register(username, password, avatarDataURL, bgDataURL, bio) {
+        const profiles = getProfiles();
+        if (profiles[username]) throw new Error('Никнейм уже занят');
+        profiles[username] = { username, password, avatar: avatarDataURL || '', background: bgDataURL || '', bio: bio || '' };
+        saveProfiles(profiles);
+        return profiles[username];
+    }
+
+    function login(username, password) {
+        const profiles = getProfiles();
+        const user = profiles[username];
+        if (!user) throw new Error('Пользователь не найден');
+        if (user.password !== password) throw new Error('Неверный пароль');
+        return user;
+    }
+
+    function updateProfile(username, updates) {
+        const profiles = getProfiles();
+        if (!profiles[username]) return;
+        Object.assign(profiles[username], updates);
+        saveProfiles(profiles);
+        if (currentUser && currentUser.username === username) currentUser = profiles[username];
+    }
+
+    // ====================== Конвертация файла в DataURL ======================
+    function fileToDataURL(file) {
+        return new Promise((resolve, reject) => {
+            const reader = new FileReader();
+            reader.onload = () => resolve(reader.result);
+            reader.onerror = () => reject(reader.error);
+            reader.readAsDataURL(file);
+        });
+    }
+
+    // ====================== Рендер ======================
+    async function renderApp() {
+        if (!currentUser) renderAuthScreen();
+        else await renderMainApp();
+    }
+
+    function renderAuthScreen() {
+        app.innerHTML = `
+            <div style="width:100%; display:flex; align-items:center; justify-content:center; flex-direction:column; color:white;">
+                <i class="fas fa-comment-dots" style="font-size: 5rem; color:#38bdf8; margin-bottom:20px;"></i>
+                <h1 style="font-size:3rem; font-weight:800; background: linear-gradient(135deg, #a5f3fc, #38bdf8); -webkit-background-clip:text; -webkit-text-fill-color:transparent;">SyChat</h1>
+                <p style="color:#94a3b8; margin:20px 0;">Войдите или зарегистрируйтесь</p>
+                <div style="display:flex; gap:16px;">
+                    <button class="btn btn-primary" id="showRegisterBtn">Регистрация</button>
+                    <button class="btn btn-outline" id="showLoginBtn">Вход</button>
+                </div>
+            </div>
+        `;
+        document.getElementById('showRegisterBtn').onclick = () => registerModal.classList.remove('hidden');
+        document.getElementById('showLoginBtn').onclick = () => loginModal.classList.remove('hidden');
+    }
+
+    async function renderMainApp() {
+        const profiles = getProfiles();
+        let users = Object.values(profiles).filter(u => u.username !== currentUser.username);
+        const searchTerm = document.getElementById('searchInput')?.value.toLowerCase() || '';
+
+        let sidebarHtml = `
+            <div class="sidebar">
+                <div class="profile-header">
+                    <img src="${currentUser.avatar || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\' viewBox=\'0 0 100 100\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'50\' fill=\'%23334155\'/%3E%3Ctext x=\'50\' y=\'70\' font-size=\'50\' text-anchor=\'middle\' fill=\'white\'%3E' + currentUser.username.charAt(0).toUpperCase() + '%3C/text%3E%3C/svg%3E'}" class="avatar-large" alt="">
+                    <div class="profile-info"><h3>${escapeHtml(currentUser.username)}</h3><p><i class="fas fa-circle" style="color:#22c55e; font-size:0.6rem;"></i> онлайн</p></div>
+                    <button class="edit-profile-btn" id="editProfileBtn"><i class="fas fa-pen"></i></button>
+                    <button class="logout-btn" id="logoutBtn"><i class="fas fa-sign-out-alt"></i></button>
+                </div>
+                <div class="search-box"><input type="text" id="searchInput" placeholder="Поиск по нику..." value="${escapeHtml(searchTerm)}"></div>
+                <div class="users-list" id="usersList">
+        `;
+
+        users = users.filter(u => u.username.toLowerCase().includes(searchTerm));
+        if (users.length === 0) sidebarHtml += `<div style="color:#94a3b8; text-align:center; padding:20px;">Пользователей нет</div>`;
+        else users.forEach(u => {
+            const selectedClass = (selectedUsername === u.username) ? 'selected' : '';
+            sidebarHtml += `
+                <div class="user-item ${selectedClass}" data-username="${u.username}">
+                    <img src="${u.avatar || 'data:image/svg+xml,%3Csvg xmlns=\'http://www.w3.org/2000/svg\' width=\'100\' height=\'100\' viewBox=\'0 0 100 100\'%3E%3Ccircle cx=\'50\' cy=\'50\' r=\'50\' fill=\'%23334155\'/%3E%3Ctext x=\'50\' y=\'70\' font-size=\'50\' text-anchor=\'middle\' fill=\'white\'%3E' + u.username.charAt(0).toUpperCase() + '%3C/text%3E%3C/svg%3E'}" class="user-avatar" alt="">
+                    <div class="user-info"><h4>${escapeHtml(u.username)}</h4><p>${u.bio ? escapeHtml(u.bio.substring(0,20)) + '...' : 'нет био'}</p></div>
+                </div>
+            `;
+        });
+        sidebarHtml += `</div></div>`;
+
+        let chatHtml = `<div class="chat-area">`;
+        if (selectedUsername && profiles[selectedUsername]?.background) {
+            chatHtml += `<img class="chat-background" src="${profiles[selectedUsername].background}" alt="">`;
+        }
+        chatHtml += `<div class="chat-content">`;
+
+        if (!selectedUsername) {
+            chatHtml += `<div style="flex:1; display:flex; align-items:center; justify-content:center; color:#94a3b8;">Выберите собеседника из списка</div>`;
+        } else {
+            chatHtml += `
+                <div class="chat-header"><h2>${escapeHtml(selectedUsername)}</h2><span class="user-status">${profiles[selectedUsername]?.bio || ''}</span></div>
+                <div class="messages-container" id="messagesContainer"></div>
+                <div class="input-area">
+                    <input type="text" id="messageInput" placeholder="Написать сообщение...">
+                    <button class="voice-btn" id="voiceBtn"><i class="fas fa-microphone"></i></button>
+                    <button id="sendBtn"><i class="fas fa-paper-plane"></i></button>
+                </div>
+            `;
+        }
+        chatHtml += `</div></div>`;
+        app.innerHTML = sidebarHtml + chatHtml;
+
+        document.getElementById('editProfileBtn').onclick = () => {
+            document.getElementById('editBio').value = currentUser.bio || '';
+            editProfileModal.classList.remove('hidden');
+        };
+
+        document.getElementById('logoutBtn').onclick = () => {
+            currentUser = null;
+            selectedUsername = null;
+            sessionStorage.removeItem('sychat_currentUser');
+            renderApp();
+        };
+
+        document.getElementById('searchInput').addEventListener('input', renderMainApp);
+
+        document.querySelectorAll('.user-item').forEach(item => {
+            item.addEventListener('click', () => {
+                selectedUsername = item.dataset.username;
+                renderMainApp();
+                loadMessagesIntoUI(selectedUsername);
+            });
+        });
+
+        if (selectedUsername) {
+            await loadMessagesIntoUI(selectedUsername);
+            document.getElementById('sendBtn').onclick = async () => {
+                const input = document.getElementById('messageInput');
+                if (input.value.trim()) {
+                    await saveMessage({ from: currentUser.username, to: selectedUsername, text: input.value.trim(), type: 'text', timestamp: Date.now() });
+                    input.value = '';
+                    await loadMessagesIntoUI(selectedUsername);
+                }
+            };
+            document.getElementById('messageInput').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') document.getElementById('sendBtn').click();
+            });
+            document.getElementById('voiceBtn').onclick = toggleVoiceRecording;
+        }
+    }
+
+    async function loadMessagesIntoUI(otherUsername) {
+        const container = document.getElementById('messagesContainer');
+        if (!container) return;
+        const messages = await loadMessages(currentUser.username, otherUsername);
+        container.innerHTML = '';
+        for (const m of messages) {
+            const own = m.from === currentUser.username;
+            if (m.type === 'voice' && m.fileId) {
+                const fileData = await getFile(m.fileId);
+                if (fileData) {
+                    const url = URL.createObjectURL(fileData.blob);
+                    container.innerHTML += `
+                        <div class="message ${own ? 'own' : ''}">
+                            <div class="voice-message bubble">
+                                <audio controls src="${url}"></audio>
+                                <span class="duration">${Math.round(fileData.blob.size / 16000)} sec</span>
+                            </div>
+                            <div class="message-time">${formatTime(m.timestamp)}</div>
+                        </div>
+                    `;
+                }
+            } else if (m.type === 'text') {
+                container.innerHTML += `
+                    <div class="message ${own ? 'own' : ''}">
+                        <div class="bubble">${escapeHtml(m.text)}</div>
+                        <div class="message-time">${formatTime(m.timestamp)}</div>
+                    </div>
+                `;
+            }
+        }
+        container.scrollTop = container.scrollHeight;
+    }
+
+    async function toggleVoiceRecording() {
+        if (recording) {
+            mediaRecorder.stop();
+            recording = false;
+            document.querySelector('.voice-btn').classList.remove('recording');
+        } else {
+            try {
+                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+                mediaRecorder = new MediaRecorder(stream);
+                audioChunks = [];
+                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+                mediaRecorder.onstop = async () => {
+                    const audioBlob = new Blob(audioChunks, { type: 'audio/webm' });
+                    const fileId = await saveFile(audioBlob, 'audio/webm');
+                    if (selectedUsername) {
+                        await saveMessage({ from: currentUser.username, to: selectedUsername, type: 'voice', fileId, timestamp: Date.now() });
+                        await loadMessagesIntoUI(selectedUsername);
+                    }
+                    stream.getTracks().forEach(t => t.stop());
+                };
+                mediaRecorder.start();
+                recording = true;
+                document.querySelector('.voice-btn').classList.add('recording');
+            } catch (e) {
+                alert('Не удалось получить доступ к микрофону');
+            }
+        }
+    }
+
+    function escapeHtml(unsafe) {
+        return unsafe.replace(/[&<>"]/g, m => {
+            if (m === '&') return '&amp;';
+            if (m === '<') return '&lt;';
+            if (m === '>') return '&gt;';
+            if (m === '"') return '&quot;';
+            return m;
+        });
+    }
+
+    function formatTime(ts) {
+        return new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+    }
+
+    // ====================== Обработчики модалок ======================
+    document.getElementById('registerConfirm').onclick = async () => {
+        const username = document.getElementById('regUsername').value.trim();
+        const password = document.getElementById('regPassword').value.trim();
+        if (!username || !password) return alert('Заполните ник и пароль');
+        try {
+            const avatarFile = document.getElementById('regAvatar').files[0];
+            const bgFile = document.getElementById('regBackground').files[0];
+            const bio = document.getElementById('regBio').value.trim();
+            const avatarDataURL = avatarFile ? await fileToDataURL(avatarFile) : '';
+            const bgDataURL = bgFile ? await fileToDataURL(bgFile) : '';
+            const profile = register(username, password, avatarDataURL, bgDataURL, bio);
+            currentUser = profile;
+            registerModal.classList.add('hidden');
+            await renderApp();
+        } catch (e) { alert(e.message); }
+    };
+    document.getElementById('registerCancel').onclick = () => registerModal.classList.add('hidden');
+
+    document.getElementById('loginConfirm').onclick = async () => {
+        const username = document.getElementById('loginUsername').value.trim();
+        const password = document.getElementById('loginPassword').value.trim();
+        if (!username || !password) return alert('Введите ник и пароль');
+        try {
+            const profile = login(username, password);
+            currentUser = profile;
+            loginModal.classList.add('hidden');
+            await renderApp();
+        } catch (e) { alert(e.message); }
+    };
+    document.getElementById('loginCancel').onclick = () => loginModal.classList.add('hidden');
+
+    document.getElementById('editConfirm').onclick = async () => {
+        const bio = document.getElementById('editBio').value.trim();
+        const avatarFile = document.getElementById('editAvatar').files[0];
+        const bgFile = document.getElementById('editBackground').files[0];
+        const updates = {};
+        if (bio) updates.bio = bio;
+        if (avatarFile) updates.avatar = await fileToDataURL(avatarFile);
+        if (bgFile) updates.background = await fileToDataURL(bgFile);
+        updateProfile(currentUser.username, updates);
+        editProfileModal.classList.add('hidden');
+        await renderApp();
+    };
+    document.getElementById('editCancel').onclick = () => editProfileModal.classList.add('hidden');
+
+    // ====================== Запуск ======================
+    (async () => {
+        await initDB();
+        const saved = sessionStorage.getItem('sychat_currentUser');
+        if (saved) try { currentUser = JSON.parse(saved); } catch (e) {}
+        await renderApp();
+    })();
+
+    window.addEventListener('beforeunload', () => {
+        if (currentUser) sessionStorage.setItem('sychat_currentUser', JSON.stringify(currentUser));
+    });
+})();
+</script>
+</body>
+</html>
